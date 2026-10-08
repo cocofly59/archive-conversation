@@ -10,6 +10,17 @@ import type { ArchivedFile, Conversation } from "./types.ts";
 
 export const FORMAT = "conversation-archive/1";
 
+/** The plugin's version, read from its manifest next to the scripts; "unknown" when unreadable. */
+export function pluginVersion(): string {
+  try {
+    const manifest: unknown = JSON.parse(readFileSync(new URL("../../.claude-plugin/plugin.json", import.meta.url), "utf8"));
+    const version = typeof manifest === "object" && manifest !== null ? (manifest as Record<string, unknown>)["version"] : undefined;
+    return typeof version === "string" ? version : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export interface ManifestFile {
   readonly path: string;
   readonly role: "conversation" | "artifact" | "attachment" | "raw";
@@ -21,6 +32,7 @@ export interface ManifestFile {
 
 export interface Manifest {
   readonly format: typeof FORMAT;
+  readonly packer: { readonly name: "archive-conversation"; readonly version: string };
   readonly title: string;
   readonly source: { readonly kind: string; readonly name: string };
   readonly startedAt?: string | undefined;
@@ -181,6 +193,7 @@ export function pack(conversation: Conversation, sourceName: string, included: I
   }
   const manifest: Manifest = {
     format: FORMAT,
+    packer: { name: "archive-conversation", version: pluginVersion() },
     title: conversation.title,
     source: { kind: conversation.kind, name: sourceName },
     startedAt: conversation.startedAt,

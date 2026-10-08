@@ -26,6 +26,8 @@ Call the destination folder `OUT`. Write the archive to `/tmp` first, then copy 
 
 The script is `${CLAUDE_PLUGIN_ROOT}/scripts/conversation-archive.ts`, or, when that variable is empty, `../../scripts/conversation-archive.ts` from this skill's base directory. Call it `ARCHIVER`. It needs Node 22.18 or later: run `node --version`. If Node is missing or older, use the manual fallback in step 4.
 
+Tell the user which version of this plugin is running, first thing: `node "$ARCHIVER" version` prints it, and so does the first line of every `pack` report. Without Node, read `version` from `.claude-plugin/plugin.json` at the plugin root.
+
 ## 2. Find the source
 
 | Conversation | Source |
@@ -59,7 +61,7 @@ An included file replaces a recovered one at the same path.
 
 ## 4. Manual fallback, without Node 22.18
 
-Build the same layout by hand in `/tmp/<date>-<slug>/`: `conversation.md` (the source, or a reconstruction), `artifacts/`, `raw/` (the source files, untouched), and a `manifest.json` with `format` `"conversation-archive/1"`, `title`, `source` (`kind`, `name`), `packedAt`, `files` (path and `sha256` of each, from `sha256sum` or `shasum -a 256`), and `warnings` (including `"packed manually"`). Then `tar -czf /tmp/<date>-<slug>.tar.gz -C /tmp <date>-<slug>` and copy it into `OUT`.
+Build the same layout by hand in `/tmp/<date>-<slug>/`: `conversation.md` (the source, or a reconstruction), `artifacts/`, `raw/` (the source files, untouched), and a `manifest.json` with `format` `"conversation-archive/1"`, `title`, `source` (`kind`, `name`), `packedAt`, `files` (path and `sha256` of each, from `sha256sum` or `shasum -a 256`), `packer` (`name` `"archive-conversation"`, `version` from `.claude-plugin/plugin.json`), and `warnings` (including `"packed manually"`). Then `tar -czf /tmp/<date>-<slug>.tar.gz -C /tmp <date>-<slug>` and copy it into `OUT`.
 
 The archive holds one root folder:
 
@@ -79,4 +81,4 @@ The archive holds one root folder:
 - **Completeness**: compare the artifacts with what the conversation says it produced, and report anything still missing.
 - The raw transcript contains every tool output of the session. Mention it if the archive will be shared more widely than the conversation was.
 
-Report where the archive is, what it holds, whether the conversation was read from a transcript or reconstructed, whether any earlier turns are missing, which links are not in the archive, and the warnings. On a phone, the user saves it from the file shown in the conversation. Then stop.
+Report the plugin version, where the archive is, what it holds, whether the conversation was read from a transcript or reconstructed, whether any earlier turns are missing, which links are not in the archive, and the warnings. On a phone, the user saves it from the file shown in the conversation. Then stop.

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { summarize } from "./claudeai.ts";
-import { pack, parseInclude, readIncludes } from "./pack.ts";
+import { pack, parseInclude, pluginVersion, readIncludes } from "./pack.ts";
 import { loadExport, loadSource } from "./source.ts";
 import { tarGzip } from "./tar.ts";
 import { SourceError } from "./types.ts";
@@ -16,6 +16,7 @@ const USAGE = `Usage:
                                [--title TITLE] [--reconstructed] [--force]
       (--include takes PATH or URL=PATH)
   conversation-archive.ts list SOURCE
+  conversation-archive.ts version
 
 pack  Normalize one conversation and the artifacts it produced into a .tar.gz archive holding
       manifest.json, conversation.md, conversation.json, artifacts/, attachments/ and raw/.
@@ -28,6 +29,7 @@ pack  Normalize one conversation and the artifacts it produced into a .tar.gz ar
       it may be repeated. --include URL=PATH also records that PATH holds the content published
       at URL, so the report stops listing that link as missing. --out defaults to ./<date>-<title-slug>.tar.gz.
 list  List the conversations of a claude.ai data export, most recent first.
+version  Print the plugin version.
 
 Exit codes: 0 ok, 1 unreadable or ambiguous source, 2 usage error.
 `;
@@ -80,6 +82,7 @@ function runPack(args: readonly string[], io: Io, now: Date): number {
   const { manifest } = packed;
   const count = (role: string): number => manifest.files.filter((f) => f.role === role).length;
   const lines = [
+    `archive-conversation ${manifest.packer.version}`,
     `archive: ${out}`,
     `root folder: ${packed.root}/`,
     `title: ${manifest.title}`,
@@ -127,6 +130,10 @@ export function main(argv: readonly string[], io: Io = processIo, now: Date = ne
         return runPack(rest, io, now);
       case "list":
         return runList(rest, io);
+      case "version":
+      case "--version":
+        io.stdout(`archive-conversation ${pluginVersion()}\n`);
+        return EXIT_OK;
       case undefined:
       case "-h":
       case "--help":
