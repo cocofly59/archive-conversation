@@ -50,10 +50,12 @@ node "$ARCHIVER" pack <source> --out /tmp/<name>.tar.gz [--conversation <uuid|na
 Read the report, then re-run with `--force` and one `--include` (file or folder) per missing piece:
 
 - **Files the conversation produced** in `OUT`, the working folder, or anywhere you wrote them: include them. A transcript rebuilds text files it wrote or edited; it cannot rebuild binaries or command outputs, and a reconstruction rebuilds nothing.
-- **Artifacts and docs** listed as "referenced but not in the source", or shown in this chat: fetch or write each one to `/tmp` and include it.
+- **Artifacts and docs** listed as "not in the archive", or shown in this chat: fetch or write each one to `/tmp` and include it as `--include <url>=<path>`, so the archive records which link it stands for. Links to pages the session published from a file it kept are resolved on their own.
 - **Uploaded files reported missing**: ask the user for them.
 
-An included file replaces a recovered one at the same path. Set `--title` when the derived title is an id or the first words of a prompt. Exit code 1 means the source is unreadable or ambiguous; the message says what to do. Copy the archive into `OUT`.
+An included file replaces a recovered one at the same path.
+
+**Incomplete conversations.** When the report lists a compaction under "incomplete", the turns before it are gone from the transcript; only the summary written at compaction remains, and the archive marks it as such. The script already looks for them in the other transcripts of the same folder. If they are not there, tell the user how many prompts are missing and that only the summary covers them; never fill the gap yourself. Set `--title` when the derived title is an id or the first words of a prompt. Exit code 1 means the source is unreadable or ambiguous; the message says what to do. Copy the archive into `OUT`.
 
 ## 4. Manual fallback, without Node 22.18
 
@@ -77,4 +79,4 @@ The archive holds one root folder:
 - **Completeness**: compare the artifacts with what the conversation says it produced, and report anything still missing.
 - The raw transcript contains every tool output of the session. Mention it if the archive will be shared more widely than the conversation was.
 
-Report where the archive is, what it holds, whether the conversation was read from a transcript or reconstructed, what is missing, and the warnings. On a phone, the user saves it from the file shown in the conversation. Then stop.
+Report where the archive is, what it holds, whether the conversation was read from a transcript or reconstructed, whether any earlier turns are missing, which links are not in the archive, and the warnings. On a phone, the user saves it from the file shown in the conversation. Then stop.

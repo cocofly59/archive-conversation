@@ -1,3 +1,4 @@
+import type { Reference } from "./pack.ts";
 import type { Block, Conversation } from "./types.ts";
 
 const LIMIT = 4000;
@@ -44,7 +45,7 @@ function escapeHtml(text: string): string {
 }
 
 /** Renders the conversation as Markdown for a human or an agent to read in order. */
-export function renderMarkdown(conversation: Conversation): string {
+export function renderMarkdown(conversation: Conversation, references: readonly Reference[] = conversation.references.map((url) => ({ url, archived: null }))): string {
   const lines: string[] = [`# ${conversation.title}`, ""];
   lines.push(`- Source: ${conversation.kind}`);
   if (conversation.startedAt !== undefined) lines.push(`- Period: ${conversation.startedAt} to ${conversation.endedAt ?? "?"}`);
@@ -53,9 +54,13 @@ export function renderMarkdown(conversation: Conversation): string {
     lines.push("- Artifacts (last version, in artifacts/):");
     for (const artifact of conversation.artifacts) lines.push(`  - \`${artifact.path}\``);
   }
-  if (conversation.references.length > 0) {
-    lines.push("- Published artifacts referenced (content not in the source):");
-    for (const reference of conversation.references) lines.push(`  - ${reference}`);
+  if (conversation.gaps.length > 0) {
+    lines.push("- Incomplete:");
+    for (const gap of conversation.gaps) lines.push(`  - ${gap}`);
+  }
+  if (references.length > 0) {
+    lines.push("- Published artifacts and documents referenced:");
+    for (const r of references) lines.push(`  - ${r.url}${r.archived !== null ? ` (in \`${r.archived}\`)` : " (not in the archive)"}`);
   }
   lines.push("");
   for (const message of conversation.messages) {
@@ -63,7 +68,7 @@ export function renderMarkdown(conversation: Conversation): string {
     if (parts.length === 0) continue;
     const onlyResults = message.blocks.every((b) => b.kind === "tool_result");
     if (!onlyResults) {
-      const role = message.role === "user" ? "User" : "Assistant";
+      const role = message.summary === true ? "Summary of earlier turns (written at compaction)" : message.role === "user" ? "User" : "Assistant";
       lines.push("---", "", `## ${role}${message.timestamp !== undefined ? ` · ${message.timestamp}` : ""}`, "");
     }
     for (const part of parts) lines.push(part, "");

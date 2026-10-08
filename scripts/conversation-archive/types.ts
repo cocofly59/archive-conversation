@@ -13,6 +13,8 @@ export type Block =
 export interface Message {
   readonly role: Role;
   readonly timestamp?: string | undefined;
+  /** True for the summary a compaction wrote in place of the earlier turns. */
+  readonly summary?: boolean | undefined;
   readonly blocks: Block[];
 }
 
@@ -35,6 +37,10 @@ export interface Conversation {
   readonly raw: ArchivedFile[];
   /** Published artifact or document links found in the conversation; their content is not in the source. */
   readonly references: string[];
+  /** Published artifact link -> path of the file the session published there, when the source records it. */
+  readonly published: Record<string, string>;
+  /** Parts of the conversation the source no longer holds, such as turns dropped at a compaction. */
+  readonly gaps: string[];
   readonly warnings: string[];
 }
 

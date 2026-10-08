@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { summarize } from "./claudeai.ts";
-import { pack, readIncludes } from "./pack.ts";
+import { pack, parseInclude, readIncludes } from "./pack.ts";
 import { loadExport, loadSource } from "./source.ts";
 import { tarGzip } from "./tar.ts";
 import { SourceError } from "./types.ts";
@@ -14,6 +14,7 @@ export const EXIT_USAGE = 2;
 const USAGE = `Usage:
   conversation-archive.ts pack SOURCE [--out FILE] [--conversation UUID|NAME] [--include PATH]...
                                [--title TITLE] [--reconstructed] [--force]
+      (--include takes PATH or URL=PATH)
   conversation-archive.ts list SOURCE
 
 pack  Normalize one conversation and the artifacts it produced into a .tar.gz archive holding
@@ -24,7 +25,8 @@ pack  Normalize one conversation and the artifacts it produced into a .tar.gz ar
       --reconstructed marks a .md or .txt source as written by the assistant from its own
       context, for environments with no transcript file (chat, some remote sessions).
       --include adds files the source does not contain (published artifacts, an outputs folder);
-      it may be repeated. --out defaults to ./<date>-<title-slug>.tar.gz.
+      it may be repeated. --include URL=PATH also records that PATH holds the content published
+      at URL, so the report stops listing that link as missing. --out defaults to ./<date>-<title-slug>.tar.gz.
 list  List the conversations of a claude.ai data export, most recent first.
 
 Exit codes: 0 ok, 1 unreadable or ambiguous source, 2 usage error.
@@ -59,7 +61,7 @@ function runPack(args: readonly string[], io: Io, now: Date): number {
     io.stderr(`pack takes exactly one SOURCE\n\n${USAGE}`);
     return EXIT_USAGE;
   }
-  for (const path of [source, ...values.include]) {
+  for (const path of [source, ...values.include.map((v) => parseInclude(v).path)]) {
     if (!existsSync(path)) {
       io.stderr(`not found: ${path}\n`);
       return EXIT_USAGE;
@@ -85,9 +87,15 @@ function runPack(args: readonly string[], io: Io, now: Date): number {
     `messages: ${manifest.messages}, artifacts: ${count("artifact")}, attachments: ${count("attachment")}, raw files: ${count("raw")}`,
   ];
   for (const file of manifest.files.filter((f) => f.role === "artifact")) lines.push(`  ${file.path} (${file.origin}${file.versions !== undefined && file.versions > 1 ? `, ${file.versions} versions` : ""})`);
-  if (manifest.references.length > 0) {
-    lines.push("published artifacts referenced but not in the source (fetch them and re-run with --include):");
-    for (const reference of manifest.references) lines.push(`  ${reference}`);
+  const missing = manifest.references.filter((r) => r.archived === null);
+  if (manifest.references.length > 0) lines.push(`references: ${manifest.references.length - missing.length} of ${manifest.references.length} published artifacts and documents are in the archive`);
+  if (missing.length > 0) {
+    lines.push("not in the archive (fetch each one and re-run with --include URL=PATH):");
+    for (const r of missing) lines.push(`  ${r.url}`);
+  }
+  if (manifest.gaps.length > 0) {
+    lines.push("incomplete:");
+    for (const gap of manifest.gaps) lines.push(`  ${gap}`);
   }
   if (manifest.warnings.length > 0) {
     lines.push("warnings:");

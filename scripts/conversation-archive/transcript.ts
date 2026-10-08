@@ -8,10 +8,42 @@ import { ArtifactStore } from "./artifacts.ts";
 import type { Block, Conversation, Message, SourceFile } from "./types.ts";
 import { collectReferences, isRecord, SourceError, str } from "./types.ts";
 
+interface Boundary {
+  readonly parent: string;
+  readonly at: string | undefined;
+}
+
 interface Parsed {
   messages: Message[];
   firstAt: string | undefined;
   title: string | undefined;
+  uuids: Set<string>;
+  boundaries: Boundary[];
+  dropped: Map<string, number>;
+}
+
+/**
+ * The record ids a transcript holds and the ids its compactions point back to. A compaction
+ * boundary names the last turn before it (`logicalParentUuid`); when no transcript holds that
+ * id, the turns before the compaction are gone from the source.
+ */
+export function linkage(data: Uint8Array): { uuids: Set<string>; parents: Set<string> } {
+  const uuids = new Set<string>();
+  const parents = new Set<string>();
+  for (const line of new TextDecoder().decode(data).split("\n")) {
+    if (line.trim() === "") continue;
+    try {
+      const record: unknown = JSON.parse(line);
+      if (!isRecord(record)) continue;
+      const uuid = str(record["uuid"]);
+      if (uuid !== undefined) uuids.add(uuid);
+      const parent = str(record["logicalParentUuid"]);
+      if (parent !== undefined && record["subtype"] === "compact_boundary") parents.add(parent);
+    } catch {
+      continue;
+    }
+  }
+  return { uuids, parents };
 }
 
 /** True when a file name is a subagent transcript rather than a main conversation. */
@@ -25,10 +57,20 @@ export function parseTranscripts(files: readonly SourceFile[], diskFallback: boo
   const warnings: string[] = [];
   const references = new Set<string>();
   const store = new ArtifactStore();
+  const published = new Map<string, string>();
   const parsed = main
-    .map((f) => parseOne(f, warnings, references))
+    .map((f) => parseOne(f, warnings, references, published))
     .sort((a, b) => (a.firstAt ?? "").localeCompare(b.firstAt ?? ""));
   const messages = parsed.flatMap((p) => p.messages);
+  const known = new Set(parsed.flatMap((p) => [...p.uuids]));
+  const gaps: string[] = [];
+  for (const p of parsed) {
+    for (const boundary of p.boundaries) {
+      if (known.has(boundary.parent)) continue;
+      const prompts = p.dropped.get(boundary.parent);
+      gaps.push(`compacted${boundary.at !== undefined ? ` on ${boundary.at}` : ""}: ${prompts !== undefined ? `the ${prompts} earlier user prompts and their replies are` : "the earlier turns are"} not in the transcript, only the summary written at compaction`);
+    }
+  }
   if (messages.length === 0) throw new SourceError("the transcript holds no conversation messages");
   replayFileTools(messages, store);
   const artifacts = store.finish(diskFallback);
@@ -45,12 +87,17 @@ export function parseTranscripts(files: readonly SourceFile[], diskFallback: boo
     attachments: [],
     raw: files.map((f) => ({ path: f.name, content: f.data, origin: "source" })),
     references: [...references],
+    published: Object.fromEntries(published),
+    gaps,
     warnings,
   };
 }
 
-function parseOne(file: SourceFile, warnings: string[], references: Set<string>): Parsed {
+function parseOne(file: SourceFile, warnings: string[], references: Set<string>, published: Map<string, string>): Parsed {
   const messages: Message[] = [];
+  const uuids = new Set<string>();
+  const boundaries: Boundary[] = [];
+  const dropped = new Map<string, number>();
   let title: string | undefined;
   let lastAssistantId: string | undefined;
   let bad = 0;
@@ -66,8 +113,26 @@ function parseOne(file: SourceFile, warnings: string[], references: Set<string>)
     }
     if (!isRecord(record)) continue;
     const type = record["type"];
+    const uuid = str(record["uuid"]);
+    if (uuid !== undefined) uuids.add(uuid);
+    if (type === "frame-link") {
+      const path = str(record["path"]);
+      const url = str(record["frameUrl"]);
+      if (path !== undefined && url !== undefined) published.set(url, path);
+    }
+    if (type === "system" && record["subtype"] === "compact_boundary") {
+      const parent = str(record["logicalParentUuid"]);
+      if (parent !== undefined) boundaries.push({ parent, at: str(record["timestamp"]) });
+    }
     if (type === "custom-title") title = str(record["customTitle"]) ?? title;
     if (type === "summary") title ??= str(record["summary"]);
+    const summary = type === "user" && record["isCompactSummary"] === true;
+    if (summary) {
+      const position = record["turnPosition"];
+      const prompts = isRecord(position) ? position["promptIndex"] : undefined;
+      const last = boundaries.at(-1);
+      if (typeof prompts === "number" && last !== undefined) dropped.set(last.parent, prompts);
+    }
     if ((type !== "user" && type !== "assistant") || record["isMeta"] === true || record["isSidechain"] === true) continue;
     const message = record["message"];
     if (!isRecord(message)) continue;
@@ -86,10 +151,10 @@ function parseOne(file: SourceFile, warnings: string[], references: Set<string>)
     } else {
       lastAssistantId = undefined;
     }
-    messages.push({ role: type, timestamp, blocks });
+    messages.push(summary ? { role: type, timestamp, summary, blocks } : { role: type, timestamp, blocks });
   }
   if (bad > 0) warnings.push(`${file.name}: ${bad} unreadable line(s) skipped`);
-  return { messages, firstAt: messages[0]?.timestamp, title };
+  return { messages, firstAt: messages[0]?.timestamp, title, uuids, boundaries, dropped };
 }
 
 function toBlocks(content: unknown): Block[] {
@@ -181,7 +246,7 @@ function applyEdit(store: ArtifactStore, path: string, edit: Record<string, unkn
 
 function firstLine(messages: readonly Message[]): string {
   for (const message of messages) {
-    if (message.role !== "user") continue;
+    if (message.role !== "user" || message.summary === true) continue;
     for (const block of message.blocks) {
       if (block.kind === "text") return block.text.trim().split("\n")[0]?.slice(0, 80) ?? "conversation";
     }

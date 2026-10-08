@@ -122,6 +122,8 @@ export function parseConversation(conversation: Record<string, unknown>): Conver
     attachments,
     raw: [{ path: "conversation.json", content: JSON.stringify(conversation, null, 2), origin: "source" }],
     references: [...references],
+    published: {},
+    gaps: [],
     warnings,
   };
 }
