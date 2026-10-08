@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install archive-conversation</title>
+<meta name="description" content="Add the archive-conversation plugin to Claude in a minute, from a phone or a computer.">
+<style>
+  :root {
+    --bg: #faf9f6; --card: #ffffff; --text: #1f1e1c; --muted: #6b6860;
+    --line: #e6e3dc; --accent: #c4613d; --accent-text: #ffffff; --code: #f1efe9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a18; --card: #24231f; --text: #ecebe6; --muted: #a29f96;
+      --line: #393731; --accent: #d97757; --accent-text: #1b1a18; --code: #2d2c27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 8px; }
+  h2 { font-size: 1.05rem; margin: 32px 0 12px; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); }
+  ol { padding-left: 1.3em; margin: 0; }
+  li { margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-top: 20px; }
+  .copy { display: flex; gap: 8px; margin-top: 8px; }
+  .copy code {
+    flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; background: var(--code);
+    border-radius: 8px; padding: 10px 12px; font: 15px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  button, .button {
+    appearance: none; border: 0; border-radius: 10px; cursor: pointer; text-decoration: none;
+    background: var(--accent); color: var(--accent-text); font: 600 15px/1 inherit;
+    font-family: inherit; padding: 12px 16px; display: inline-block; text-align: center;
+  }
+  .button.wide { display: block; margin-top: 8px; }
+  .secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  small, .muted { color: var(--muted); }
+  pre { background: var(--code); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Install archive-conversation</h1>
+  <p class="lead">A Claude plugin that saves a conversation and every file it produced into one archive you can download. Works on a phone, on the web, and on a computer.</p>
+
+  <div class="card">
+    <ol>
+      <li>Copy the marketplace name:
+        <div class="copy">
+          <code id="repo">cocofly59/archive-conversation</code>
+          <button type="button" id="copy">Copy</button>
+        </div>
+      </li>
+      <li>Open your Claude plugins page and sign in if asked:
+        <a class="button wide" href="https://claude.ai/customize/plugins">Open Claude plugins</a>
+      </li>
+      <li>Tap <strong>Add</strong>, then <strong>Add marketplace</strong>, paste the name, and confirm.</li>
+      <li>Open <strong>archive-conversation</strong> in the list and tap <strong>Add</strong>.</li>
+      <li>Start a <strong>new</strong> conversation or Cowork task in the Claude app and say <em>"Archive this conversation"</em>.</li>
+    </ol>
+  </div>
+
+  <h2>On a phone, menus missing?</h2>
+  <p>In Safari, tap <strong>aA</strong> in the address bar, then <strong>Request Desktop Website</strong>. In Chrome, open the menu and tick <strong>Desktop site</strong>. The plugin is saved to your Claude account, so adding it once is enough for all your devices.</p>
+
+  <h2>Other ways</h2>
+  <p><strong>Upload a file:</strong> download the plugin, then on the plugins page choose <strong>Add &gt; Upload plugin</strong>.</p>
+  <p><a class="button secondary" href="https://github.com/cocofly59/archive-conversation/releases/latest/download/archive-conversation.plugin">Download the plugin file</a></p>
+  <p><strong>Claude Code:</strong></p>
+  <pre>/plugin marketplace add cocofly59/archive-conversation
+/plugin install archive-conversation@archive-conversation</pre>
+  <p class="muted"><small>Source and license: <a href="https://github.com/cocofly59/archive-conversation">github.com/cocofly59/archive-conversation</a></small></p>
+</main>
+<script>
+  const button = document.getElementById("copy");
+  button.addEventListener("click", async () => {
+    const text = document.getElementById("repo").textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById("repo"));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.execCommand("copy");
+    }
+    button.textContent = "Copied";
+    setTimeout(() => { button.textContent = "Copy"; }, 2000);
+  });
+</script>
+</body>
+</html>
