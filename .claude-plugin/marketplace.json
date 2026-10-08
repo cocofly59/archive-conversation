@@ -1,0 +1,15 @@
+{
+  "name": "archive-conversation",
+  "owner": {
+    "name": "Nicolas Giammetta"
+  },
+  "description": "Marketplace for the archive-conversation plugin.",
+  "plugins": [
+    {
+      "name": "archive-conversation",
+      "source": "./",
+      "description": "One conversation and every artifact it produced, in a single archive.",
+      "category": "productivity"
+    }
+  ]
+}

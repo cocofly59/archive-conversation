@@ -1,0 +1,18 @@
+{
+  "name": "archive-conversation",
+  "version": "0.1.0",
+  "description": "Capture one conversation (Cowork, Claude Code, or claude.ai) with every artifact it produced into a single archive.",
+  "author": {
+    "name": "Nicolas Giammetta"
+  },
+  "repository": "https://github.com/cocofly59/archive-conversation",
+  "license": "MIT",
+  "keywords": [
+    "cowork",
+    "conversation",
+    "transcript",
+    "artifacts",
+    "archive",
+    "handover"
+  ]
+}
