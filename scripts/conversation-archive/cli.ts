@@ -13,7 +13,7 @@ export const EXIT_USAGE = 2;
 
 const USAGE = `Usage:
   conversation-archive.ts pack SOURCE [--out FILE] [--conversation UUID|NAME] [--include PATH]...
-                               [--title TITLE] [--force]
+                               [--title TITLE] [--reconstructed] [--force]
   conversation-archive.ts list SOURCE
 
 pack  Normalize one conversation and the artifacts it produced into a .tar.gz archive holding
@@ -21,6 +21,8 @@ pack  Normalize one conversation and the artifacts it produced into a .tar.gz ar
       SOURCE is a Claude Code or desktop session transcript (.jsonl), a session export or
       session folder (.zip or folder of .jsonl), a claude.ai data export (.zip, folder, or
       conversations.json), or a conversation pasted as text (.md, .txt).
+      --reconstructed marks a .md or .txt source as written by the assistant from its own
+      context, for environments with no transcript file (chat, some remote sessions).
       --include adds files the source does not contain (published artifacts, an outputs folder);
       it may be repeated. --out defaults to ./<date>-<title-slug>.tar.gz.
 list  List the conversations of a claude.ai data export, most recent first.
@@ -48,6 +50,7 @@ function runPack(args: readonly string[], io: Io, now: Date): number {
       conversation: { type: "string" },
       include: { type: "string", multiple: true, default: [] },
       title: { type: "string" },
+      reconstructed: { type: "boolean", default: false },
       force: { type: "boolean", default: false },
     },
   });
@@ -62,7 +65,7 @@ function runPack(args: readonly string[], io: Io, now: Date): number {
       return EXIT_USAGE;
     }
   }
-  const loaded = loadSource(resolve(source), values.conversation, values.title);
+  const loaded = loadSource(resolve(source), values.conversation, values.title, values.reconstructed);
   const conversation = values.title === undefined ? loaded : { ...loaded, title: values.title };
   const packed = pack(conversation, basename(source), readIncludes(values.include), now);
   const out = resolve(values.out ?? `${packed.root}.tar.gz`);

@@ -43,16 +43,16 @@ export function loadExport(path: string): Record<string, unknown>[] {
  * Detects the source shape and parses it:
  * - `.jsonl`: one Claude Code transcript;
  * - `.json`: a claude.ai export or a single conversation from it;
- * - `.md` / `.txt`: a conversation pasted as text, kept verbatim;
+ * - `.md` / `.txt`: a conversation pasted as text, or reconstructed by the assistant, kept verbatim;
  * - directory or `.zip`: a claude.ai export when it holds `conversations.json`, otherwise the
  *   Claude Code transcripts (`*.jsonl`) it holds, such as an app session export.
  */
-export function loadSource(path: string, selector: string | undefined, title: string | undefined): Conversation {
+export function loadSource(path: string, selector: string | undefined, title: string | undefined, reconstructed = false): Conversation {
   const lower = path.toLowerCase();
   const name = basename(path);
   if (lower.endsWith(".jsonl")) return parseTranscripts([{ name, data: readFileSync(path) }], true);
   if (lower.endsWith(".json")) return parseConversation(select(conversationsOf(JSON.parse(readFileSync(path, "utf8"))), selector));
-  if (lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".txt")) return pasted(path, title);
+  if (lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".txt")) return pasted(path, title, reconstructed);
   const isDir = statSync(path).isDirectory();
   if (!isDir && !lower.endsWith(".zip")) throw new SourceError(`unsupported source ${name}: expected .jsonl, .json, .md, .txt, .zip or a folder`);
   const files = readSet(path);
@@ -65,19 +65,23 @@ export function loadSource(path: string, selector: string | undefined, title: st
   return parseTranscripts(transcripts, isDir);
 }
 
-function pasted(path: string, title: string | undefined): Conversation {
+function pasted(path: string, title: string | undefined, reconstructed: boolean): Conversation {
   const text = readFileSync(path, "utf8");
   const heading = /^#\s+(.+)$/m.exec(text)?.[1]?.trim();
   const references = new Set<string>();
   collectReferences(text, references);
   return {
     title: title ?? heading ?? basename(path, extname(path)),
-    kind: "markdown",
+    kind: reconstructed ? "reconstructed" : "markdown",
     messages: [],
     artifacts: [],
     attachments: [],
     raw: [{ path: basename(path), content: text, origin: "source" }],
     references: [...references],
-    warnings: ["pasted text: kept verbatim as conversation.md; roles and artifacts are not parsed"],
+    warnings: [
+      reconstructed
+        ? "reconstructed: written by the assistant from its own context, not read from a transcript; turns lost to context compaction are missing"
+        : "pasted text: kept verbatim as conversation.md; roles and artifacts are not parsed",
+    ],
   };
 }

@@ -95,7 +95,7 @@ export function pack(conversation: Conversation, sourceName: string, included: r
   const warnings = [...conversation.warnings];
   const artifacts = mergeArtifacts(conversation.artifacts, included, warnings);
   const root = `${(conversation.startedAt ?? packedAt.toISOString()).slice(0, 10)}-${slugify(conversation.title)}`;
-  const markdown = conversation.kind === "markdown" && conversation.raw[0] !== undefined
+  const markdown = (conversation.kind === "markdown" || conversation.kind === "reconstructed") && conversation.raw[0] !== undefined
     ? String(conversation.raw[0].content)
     : renderMarkdown({ ...conversation, artifacts });
   const json = JSON.stringify(

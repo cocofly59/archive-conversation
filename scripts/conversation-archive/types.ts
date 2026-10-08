@@ -1,4 +1,5 @@
-export type SourceKind = "claude-code-transcript" | "claude-ai-export" | "markdown";
+/** `reconstructed`: written by the assistant from its own context, where no transcript file exists. */
+export type SourceKind = "claude-code-transcript" | "claude-ai-export" | "markdown" | "reconstructed";
 
 export type Role = "user" | "assistant";
 
