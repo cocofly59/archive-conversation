@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { basename, relative, resolve, sep } from "node:path";
 import { safePath } from "./artifacts.ts";
 import { renderMarkdown } from "./render.ts";
 import { findSecrets } from "./secrets.ts";
@@ -78,20 +78,25 @@ export function parseInclude(value: string): { url: string | undefined; path: st
 
 /**
  * Reads `--include` values: a file keeps its base name, a folder keeps its inner layout. A value
- * `URL=PATH` also records that PATH holds the content published at URL. A path given twice is read once.
+ * `URL=PATH` also records that PATH holds the content published at URL. A path given twice is read
+ * once, and a file inside an included folder is not copied again: its link points to the folder's copy.
  */
 export function readIncludes(values: readonly string[]): Included {
+  const parsed = values.map(parseInclude);
+  const folders = [...new Set(parsed.map((p) => resolve(p.path)).filter((p) => statSync(p).isDirectory()))];
   const files: ArchivedFile[] = [];
   const links = new Map<string, string>();
   const read = new Map<string, string>();
-  for (const value of values) {
-    const { url, path } = parseInclude(value);
+  for (const { url, path } of parsed) {
     const key = resolve(path);
     let archived = read.get(key);
     if (archived === undefined) {
-      if (statSync(path).isDirectory()) {
+      const folder = folders.filter((f) => key.startsWith(f + sep)).sort((a, b) => a.length - b.length)[0];
+      if (folders.includes(key)) {
         for (const file of readTree(path)) files.push({ path: safePath(file.name), content: file.data, origin: `included from ${basename(path)}/` });
         archived = "artifacts/";
+      } else if (folder !== undefined) {
+        archived = `artifacts/${safePath(relative(folder, key))}`;
       } else {
         archived = `artifacts/${safePath(basename(path))}`;
         files.push({ path: safePath(basename(path)), content: readFileSync(path), origin: url === undefined ? "included" : `included for ${url}` });
@@ -123,14 +128,31 @@ export function resolveReferences(urls: readonly string[], published: Record<str
   });
 }
 
-/** Merges included files over the recovered artifacts: an included file wins on a path clash. */
+function sameContent(a: string | Uint8Array, b: string | Uint8Array): boolean {
+  return Buffer.from(a).equals(Buffer.from(b));
+}
+
+/**
+ * Merges included files over the recovered artifacts. On a path clash an included file wins over a
+ * recovered one, and the later of two included files wins; a warning is raised only when the
+ * contents differ.
+ */
 export function mergeArtifacts(recovered: readonly ArchivedFile[], included: readonly ArchivedFile[], warnings: string[]): ArchivedFile[] {
-  const byPath = new Map(recovered.map((f) => [f.path, f]));
+  const byPath = new Map(recovered.map((f) => [f.path, { file: f, recovered: true }]));
   for (const file of included) {
-    if (byPath.has(file.path)) warnings.push(`artifacts/${file.path}: included file replaces the version recovered from the conversation`);
-    byPath.set(file.path, file);
+    const previous = byPath.get(file.path);
+    if (previous !== undefined && sameContent(previous.file.content, file.content)) {
+      if (previous.recovered) byPath.set(file.path, { file, recovered: false });
+      continue;
+    }
+    if (previous !== undefined) {
+      warnings.push(previous.recovered
+        ? `artifacts/${file.path}: included file replaces a different version rebuilt from the conversation`
+        : `artifacts/${file.path}: two different included files share this path; the last one is kept`);
+    }
+    byPath.set(file.path, { file, recovered: false });
   }
-  return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+  return [...byPath.values()].map((e) => e.file).sort((a, b) => a.path.localeCompare(b.path));
 }
 
 function bytesOf(content: string | Uint8Array): Uint8Array {
