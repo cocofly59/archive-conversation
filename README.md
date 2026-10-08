@@ -6,6 +6,8 @@ Sources: the current Cowork task or chat, a Cowork or Claude Code session export
 
 ## Install
 
+Step-by-step page, phone friendly: https://cocofly59.github.io/archive-conversation/
+
 - **Claude app (chat and Cowork, any device)**: in claude.ai or the desktop app, open **Customize > Plugins > Add > Add marketplace**, enter `cocofly59/archive-conversation`, then add the plugin. Or download `archive-conversation.plugin` from the [latest release](https://github.com/cocofly59/archive-conversation/releases/latest) and use **Add > Upload plugin**. The plugin is saved to your account, so it is then available on the mobile apps too.
 - **Claude Code**: `/plugin marketplace add cocofly59/archive-conversation`, then `/plugin install archive-conversation@archive-conversation`.
 
